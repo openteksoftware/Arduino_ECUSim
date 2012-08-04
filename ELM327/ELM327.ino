@@ -10,6 +10,8 @@ float p01m0C_range[2] = {
 int   p01m0D_range[2] = {
   0, 255};
 //////////////////////////////
+bool gotDTC = true;
+//////////////////////////////
 prog_char empty[]   PROGMEM  = "";
 
 prog_char help_head[]    PROGMEM = "ELM327-SIMU by OBDX (http://obdx.blogspot.de)";
@@ -86,7 +88,8 @@ bool serialIn(){
       tSerialFrame = strtok_r(p, " ", &p);
     };
     return true;
-  } else return false;
+  } 
+  else return false;
 }
 
 char* ramstr(const char** list, int pos){
@@ -106,6 +109,13 @@ String int2hex(int num) {
   return string;
 }
 
+void elmRepeat() {
+  Serial.print(fSerialFrame);
+  Serial.print(" ");
+  Serial.print(sSerialFrame);
+  Serial.print(" \r"); 
+  return;
+}
 void elmArrow() {
   Serial.print("\r\r>");
   return;
@@ -130,20 +140,21 @@ int* p01m0C(float number) {
   gleit = gleit - ganz;
   gleit = 256 * gleit;
   /*Serial.print("##");
-  Serial.print(number);
-  Serial.print("##");
-  Serial.print(ganz);
-  Serial.print("##");
-  Serial.print(gleit);
-  Serial.print("##");*/
-  int result[2] = {ganz, gleit};
+   Serial.print(number);
+   Serial.print("##");
+   Serial.print(ganz);
+   Serial.print("##");
+   Serial.print(gleit);
+   Serial.print("##");*/
+  int result[2] = {
+    ganz, gleit            };
   return result;
 }
 
 void elm_p01m0C(int pid, int mode, float num) {
   /*Serial.print("##");
-  Serial.print(num);
-  Serial.print("##");*/
+   Serial.print(num);
+   Serial.print("##");*/
   int* value = p01m0C(num);
   String printing;
   printing += String(int2hex(value[0]));
@@ -156,8 +167,8 @@ void elm_p01m0C(int pid, int mode, float num) {
 void elm_p01m0C_rand(int pid, int mode) {
   float randomized = (float)random(p01m0C_range[0], p01m0C_range[1]) + random(0,4)/4.;
   /*Serial.print("##");
-  Serial.print(randomized);
-  Serial.print("##");*/
+   Serial.print(randomized);
+   Serial.print("##");*/
   elm_p01m0C(pid, mode, randomized);
   return;
 }
@@ -182,34 +193,141 @@ void elmNoData() {
 
 void setup() {
   Serial.begin(9600);
-  Serial.print("\r\rELM327 v1.4b");
+  Serial.print("\r\r\rELM327 v1.4b");
   elmArrow();
 }
 
 void loop() {
   if (serialIn()) {
+    elmRepeat();
     if (strcmp(fSerialFrame, ramstr(serial_list, 0)) == 0) {
       if (strcmp(sSerialFrame, "HELP") == 0) {
         for (int i = 0; i <= len_help; i++)
         {
           Serial.println( ramstr(help_list, i));
         };
-      } else elmQuestPrint(); // When no MODE matches for PID XX
-    } else {
+      } 
+      else elmQuestPrint(); // When no MODE matches for PID XX
+    } 
+    else {
       if (strcmp(fSerialFrame, ramstr(serial_list, 1)) == 0) {
         if (strcmp(sSerialFrame, "00") == 0) {
           elmPrint(1, 0, "00 10 00 00");
-        } else {
+        } 
+        else {
           if (strcmp(sSerialFrame, "0C") == 0) {
             elm_p01m0C_rand(1, 12);
-          } else {
+          } 
+          else {
             if (strcmp(sSerialFrame, "0D") == 0) {
               elm_p01m0D(1, 13, 100);
-            } else elmNoData(); // When no MODE matches for PID 01
+            } 
+            else elmNoData(); // When no MODE matches for PID 01
           }
         }
       }
-      else elmQuestPrint(); // When no PID matches
+      else {
+        if (strcmp(fSerialFrame, ramstr(serial_list, 2)) == 0) {
+          if (strcmp(sSerialFrame, "00") == 0) {
+            if (gotDTC) {
+              Serial.print("42 00 E8 00 00 00 00");
+              elmArrow();
+            } 
+            else {
+              Serial.print("42 00 00 00 00 00 00");
+              elmArrow();
+            }
+          } 
+          else elmNoData(); // When no MODE matches for PID 02
+        }
+        else {
+          if (strcmp(fSerialFrame, ramstr(serial_list, 3)) == 0) {
+            if (strcmp(sSerialFrame, "00") == 0) {
+              if (gotDTC) {
+                Serial.print("43 02 02 02 04 00 00");
+                elmArrow();
+              } 
+              else {
+                Serial.print("43 00 00 00 00 00 00");
+                elmArrow();
+              }
+            } 
+            else elmNoData(); // When no MODE matches for PID 03
+          }
+          else {
+            if (strcmp(fSerialFrame, ramstr(serial_list, 4)) == 0) {
+              if (strcmp(sSerialFrame, "00") == 0) {
+                if (gotDTC) {
+                  gotDTC = false;
+                  Serial.print("44");
+                  elmArrow();
+                } 
+                else {
+                  gotDTC = true;
+                  Serial.print("44");
+                  elmArrow();
+                }
+              } 
+              else elmNoData(); // When no MODE matches for PID 04
+            }
+            else {
+              if (strcmp(fSerialFrame, ramstr(serial_list, 5)) == 0) {
+                if (strcmp(sSerialFrame, "00") == 0) {
+                  Serial.print("7F 05 22 ");
+                  elmArrow();
+                } 
+                else elmNoData(); // When no MODE matches for PID 05
+              }
+              else {
+                if (strcmp(fSerialFrame, ramstr(serial_list, 6)) == 0) {
+                  if (strcmp(sSerialFrame, "00") == 0) {
+                    Serial.print("46 00 FF 80 00 00 00 ");
+                    elmArrow();
+                  } 
+                  else elmNoData(); // When no MODE matches for PID 06
+                }
+                else {
+                  if (strcmp(fSerialFrame, ramstr(serial_list, 7)) == 0) {
+                    if (strcmp(sSerialFrame, "00") == 0) {
+                      Serial.print("47 01 35 01 15 03 00 \r47 03 04 03 02 00 00");
+                      elmArrow();
+                    } 
+                    else elmNoData(); // When no MODE matches for PID 07
+                  }
+                  else {
+                    if (strcmp(fSerialFrame, ramstr(serial_list, 8)) == 0) {
+                      if (strcmp(sSerialFrame, "00") == 0) {
+                        Serial.print("48 00 00 00 00 00 00 ");
+                        elmArrow();
+                      } 
+                      else elmNoData(); // When no MODE matches for PID 08
+                    }
+                    else {
+                      if (strcmp(fSerialFrame, ramstr(serial_list, 9)) == 0) {
+                        if (strcmp(sSerialFrame, "00") == 0) {
+                          Serial.print("7F 09 11"); //???
+                          elmArrow();
+                        } 
+                        else elmNoData(); // When no MODE matches for PID 09
+                      }
+                      else {
+                        if (strcmp(fSerialFrame, ramstr(serial_list, 10)) == 0) {
+                          if (strcmp(sSerialFrame, "Z") == 0) {
+                            setup();
+                            elmArrow();
+                          } 
+                          else elmNoData(); // When no MODE matches for PID AT
+                        }
+                        else elmQuestPrint(); // When no PID matches
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      };
     }
   };
 }
@@ -337,6 +455,12 @@ EEPROM.write(0,(menuDelay/500));
  };
  
  */
+
+
+
+
+
+
 
 
 
